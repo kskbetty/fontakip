@@ -1,0 +1,38 @@
+name: TEFAS Veri Güncelle
+
+on:
+  schedule:
+    # Her hafta içi 19:00 TSİ (16:00 UTC) — piyasa kapandıktan sonra
+    - cron: '0 16 * * 1-5'
+  workflow_dispatch:  # Elle de tetiklenebilir (Actions sekmesinden)
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # Repo'ya push edebilmek için
+
+    steps:
+      - name: Repo'yu indir
+        uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Bağımlılıkları yükle
+        run: pip install tefas-crawler pandas
+
+      - name: Veriyi çek
+        run: python scripts/fetch_funds.py
+
+      - name: funds.json'ı commit et ve push'la
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/funds.json
+          git diff --staged --quiet || git commit -m "veri: $(date +'%Y-%m-%d') güncelleme"
+          git push
