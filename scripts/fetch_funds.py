@@ -96,13 +96,13 @@ def main():
 
         def g(gun):
             hedef = bugun - timedelta(days=gun)
-            onceki = grp[grp["date"] <= str(hedef)]
+            onceki = grp[grp["date"] <= hedef]
             if onceki.empty: return None
             eski = onceki.iloc[-1]["price"]
             return round((son - eski) / eski * 100, 2) if eski else None
 
         g_ytd = None
-        ytd = grp[grp["date"] >= str(date(bugun.year, 1, 1))]
+        ytd = grp[grp["date"] >= date(bugun.year, 1, 1)]
         if not ytd.empty and ytd.iloc[0]["price"]:
             g_ytd = round((son - ytd.iloc[0]["price"]) / ytd.iloc[0]["price"] * 100, 2)
 
