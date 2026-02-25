@@ -100,11 +100,14 @@ def main():
             if onceki.empty: return None
             eski = onceki.iloc[-1]["price"]
             return round((son - eski) / eski * 100, 2) if eski else None
-
-        g_ytd = None
-        ytd = grp[grp["date"] >= date(bugun.year, 1, 1)]
-        if not ytd.empty and ytd.iloc[0]["price"]:
-            g_ytd = round((son - ytd.iloc[0]["price"]) / ytd.iloc[0]["price"] * 100, 2)
+    g_ytd = None
+        try:
+            yil_basi = pd.Timestamp(date(bugun.year, 1, 1))
+            ytd = grp[grp["date"] >= yil_basi]
+            if not ytd.empty and ytd.iloc[0]["price"]:
+                g_ytd = round((son - ytd.iloc[0]["price"]) / ytd.iloc[0]["price"] * 100, 2)
+        except:
+            pass
 
         s = grp.iloc[-1]
         g1h, g1a = g(7), g(30)
