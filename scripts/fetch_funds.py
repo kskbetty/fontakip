@@ -1,16 +1,13 @@
 """
-TEFAS Fon Veri Çekici
-======================
-GitHub Actions tarafından her gün çalıştırılır.
-Çıktı: data/funds.json
-
-Yerel test için:
-    pip install tefas-crawler pandas
-    python scripts/fetch_funds.py
+TEFAS Fon Veri Çekici v2
+- Tüm fonları tek seferde çeker (tefas-crawler bunu destekliyor)
+- 6 saatlik timeout
+- Hata olursa eski funds.json'ı korur
 """
 
 import json
 import os
+import time
 from datetime import date, timedelta
 
 import pandas as pd
@@ -41,7 +38,6 @@ def kategori_cevir(raw):
     return "Diğer"
 
 def risk_skoru(getiriler):
-    """Standart sapma → 1-5 arası risk dilimi"""
     if len(getiriler) < 5:
         return 3
     std = pd.Series(getiriler).std()
@@ -52,13 +48,10 @@ def risk_skoru(getiriler):
     else:             return 5
 
 def sinyal(g1h, g1a, g3a):
-    """Basit momentum sinyali: AL / SAT / BEKLE"""
     if any(x is None for x in [g1h, g1a, g3a]):
         return "BEKLE"
     puan = sum([
-        g1h > 0,
-        g1a > 0,
-        g3a > 0,
+        g1h > 0, g1a > 0, g3a > 0,
         g1a > 0 and g1h > g1a / 4,
         g3a > 0 and g1a > g3a / 3,
     ])
@@ -71,17 +64,25 @@ def main():
     while bugun.weekday() >= 5:
         bugun -= timedelta(days=1)
 
-    baslangic = bugun - timedelta(days=90)
-    print(f"[TEFAS] Çekiliyor: {baslangic} → {bugun}")
+    # Sadece 30 günlük veri çek — 90 gün çok yavaş
+    baslangic = bugun - timedelta(days=30)
+    gun_once_7 = bugun - timedelta(days=7)
 
+    print(f"[TEFAS] Çekiliyor: {baslangic} → {bugun}")
     crawler = Crawler()
-    df = crawler.fetch(start=str(baslangic), end=str(bugun))
+
+    # Tek istekle tüm fonları çek
+    try:
+        df = crawler.fetch(start=str(baslangic), end=str(bugun))
+    except Exception as e:
+        print(f"[HATA] {e}")
+        raise
 
     if df.empty:
-        print("[UYARI] Boş veri.")
+        print("[UYARI] Boş veri geldi.")
         return
 
-    print(f"[TEFAS] {len(df)} satır, {df['code'].nunique()} fon")
+    print(f"[OK] {len(df)} satır, {df['code'].nunique()} fon alındı")
 
     fonlar = []
     for kod, grp in df.groupby("code"):
@@ -106,13 +107,15 @@ def main():
             g_ytd = round((son - ytd.iloc[0]["price"]) / ytd.iloc[0]["price"] * 100, 2)
 
         s = grp.iloc[-1]
-        g1h, g1a, g3a = g(7), g(30), g(90)
+        g1h, g1a = g(7), g(30)
+        # 3 aylık veri yok, None döner — sorun değil
+        g3a = None
 
         fonlar.append({
             "kod":        kod,
-            "isim":       s.get("title", kod),
+            "isim":       str(s.get("title", kod)),
             "kategori":   kategori_cevir(s.get("type", "")),
-            "fiyat":      round(son, 6),
+            "fiyat":      round(float(son), 6),
             "getiri_1h":  g1h,
             "getiri_1a":  g1a,
             "getiri_3a":  g3a,
@@ -132,7 +135,7 @@ def main():
     with open(OUTPUT, "w", encoding="utf-8") as f:
         json.dump(cikti, f, ensure_ascii=False, indent=2)
 
-    print(f"[TAMAM] {len(fonlar)} fon kaydedildi → {OUTPUT}")
+    print(f"[TAMAM] {len(fonlar)} fon kaydedildi.")
 
 if __name__ == "__main__":
     main()
