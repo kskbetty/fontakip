@@ -53,19 +53,17 @@ def main():
         bugun -= timedelta(days=1)
 
     baslangic = bugun - timedelta(days=30)
-    print(f"[TEFAS] Çekiliyor: {baslangic} → {bugun}")
+    print(f"[TEFAS] Çekiliyor: {baslangic} -> {bugun}")
 
     crawler = Crawler()
     df = crawler.fetch(start=str(baslangic), end=str(bugun))
 
     if df.empty:
-        print("[UYARI] Boş veri.")
+        print("[UYARI] Bos veri.")
         return
 
-    # date sütununu datetime'a çevir
     df["date"] = pd.to_datetime(df["date"])
-
-    print(f"[OK] {len(df)} satır, {df['code'].nunique()} fon")
+    print(f"[OK] {len(df)} satir, {df['code'].nunique()} fon")
 
     yil_basi = pd.Timestamp(date(bugun.year, 1, 1))
     fonlar = []
@@ -76,23 +74,47 @@ def main():
         if len(fiyatlar) < 2:
             continue
 
-        gunluk = [(fiyatlar[i]-fiyatlar[i-1])/fiyatlar[i-1] for i in range(1, len(fiyatlar))]
-        son = fiyatlar[-1]
+        try:
+            son = float(fiyatlar[-1])
+            if son == 0:
+                continue
+        except:
+            continue
+
+        gunluk = []
+        for i in range(1, len(fiyatlar)):
+            try:
+                onceki = float(fiyatlar[i-1])
+                simdi  = float(fiyatlar[i])
+                if onceki > 0:
+                    gunluk.append((simdi - onceki) / onceki)
+            except:
+                continue
 
         def getiri(gun):
-            hedef = pd.Timestamp(bugun - timedelta(days=gun))
-            onceki = grp[grp["date"] <= hedef]
-            if onceki.empty:
+            try:
+                hedef   = pd.Timestamp(bugun - timedelta(days=gun))
+                onceki  = grp[grp["date"] <= hedef]
+                if onceki.empty:
+                    return None
+                eski = float(onceki.iloc[-1]["price"])
+                if eski == 0:
+                    return None
+                return round((son - eski) / eski * 100, 2)
+            except:
                 return None
-            eski = onceki.iloc[-1]["price"]
-            return round((son - eski) / eski * 100, 2) if eski else None
 
         g_ytd = None
-        ytd = grp[grp["date"] >= yil_basi]
-        if not ytd.empty and ytd.iloc[0]["price"]:
-            g_ytd = round((son - ytd.iloc[0]["price"]) / ytd.iloc[0]["price"] * 100, 2)
+        try:
+            ytd = grp[grp["date"] >= yil_basi]
+            if not ytd.empty:
+                eski_ytd = float(ytd.iloc[0]["price"])
+                if eski_ytd > 0:
+                    g_ytd = round((son - eski_ytd) / eski_ytd * 100, 2)
+        except:
+            pass
 
-        s = grp.iloc[-1]
+        s   = grp.iloc[-1]
         g1h = getiri(7)
         g1a = getiri(30)
 
@@ -100,7 +122,7 @@ def main():
             "kod":        kod,
             "isim":       str(s.get("title", kod)),
             "kategori":   kategori_cevir(s.get("type", "")),
-            "fiyat":      round(float(son), 6),
+            "fiyat":      round(son, 6),
             "getiri_1h":  g1h,
             "getiri_1a":  g1a,
             "getiri_3a":  None,
