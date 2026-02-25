@@ -1,0 +1,2 @@
+tefas-crawler>=0.5.0
+pandas>=2.0.0

@@ -1,0 +1,76 @@
+{
+  "guncelleme": "2025-02-25",
+  "fon_sayisi": 5,
+  "fonlar": [
+    {
+      "kod": "MAC",
+      "isim": "Marka Portföy Altın Fonu",
+      "kategori": "Altın",
+      "fiyat": 0.082341,
+      "getiri_1h": 1.24,
+      "getiri_1a": 4.87,
+      "getiri_3a": 12.3,
+      "getiri_ytd": 8.9,
+      "risk": 2,
+      "sinyal": "AL",
+      "yatirimci": 41200,
+      "portfoy_tl": 2100000000
+    },
+    {
+      "kod": "TI2",
+      "isim": "Türkiye İş Bankası Para Piyasası Fonu",
+      "kategori": "Para Piyasası",
+      "fiyat": 0.134200,
+      "getiri_1h": 0.31,
+      "getiri_1a": 1.42,
+      "getiri_3a": 4.21,
+      "getiri_ytd": 3.1,
+      "risk": 1,
+      "sinyal": "BEKLE",
+      "yatirimci": 210000,
+      "portfoy_tl": 18500000000
+    },
+    {
+      "kod": "GAF",
+      "isim": "Garanti BBVA Hisse Senedi Fonu",
+      "kategori": "Hisse",
+      "fiyat": 1.024560,
+      "getiri_1h": -0.87,
+      "getiri_1a": 3.12,
+      "getiri_3a": -2.4,
+      "getiri_ytd": 5.6,
+      "risk": 4,
+      "sinyal": "BEKLE",
+      "yatirimci": 32800,
+      "portfoy_tl": 890000000
+    },
+    {
+      "kod": "YAC",
+      "isim": "Yapı Kredi Portföy Karma Fon",
+      "kategori": "Karma",
+      "fiyat": 0.231400,
+      "getiri_1h": 0.54,
+      "getiri_1a": 2.98,
+      "getiri_3a": 7.8,
+      "getiri_ytd": 6.2,
+      "risk": 3,
+      "sinyal": "AL",
+      "yatirimci": 56100,
+      "portfoy_tl": 3200000000
+    },
+    {
+      "kod": "IEF",
+      "isim": "İş Portföy Borçlanma Araçları Fonu",
+      "kategori": "Tahvil/Bono",
+      "fiyat": 0.098760,
+      "getiri_1h": 0.18,
+      "getiri_1a": 1.89,
+      "getiri_3a": 5.6,
+      "getiri_ytd": 4.3,
+      "risk": 2,
+      "sinyal": "BEKLE",
+      "yatirimci": 78400,
+      "portfoy_tl": 5600000000
+    }
+  ]
+}

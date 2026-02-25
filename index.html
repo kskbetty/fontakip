@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FonTakip — TEFAS Fon Analiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0a0c10;
+  --surface:  #111318;
+  --border:   #1e2028;
+  --muted:    #3a3d4a;
+  --text:     #e8eaf0;
+  --sub:      #7a7f94;
+  --yesil:    #00e5a0;
+  --kirmizi:  #ff4d6a;
+  --sari:     #f5c542;
+  --altin:    #e8b84b;
+  --mavi:     #4d9fff;
+  --accent:   #00e5a0;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 400;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Arka plan desen ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(0,229,160,0.04) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(77,159,255,0.04) 0%, transparent 50%),
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrapper { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+/* ── Header ── */
+header {
+  padding: 28px 0 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.logo {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+.logo span { color: var(--accent); }
+
+.meta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--sub);
+  text-align: right;
+  line-height: 1.6;
+}
+.meta strong { color: var(--accent); font-weight: 500; }
+
+/* ── Özet kartlar ── */
+.ozet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  padding: 24px 0 20px;
+}
+
+.ozet-kart {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  transition: border-color 0.2s;
+}
+.ozet-kart:hover { border-color: var(--muted); }
+.ozet-kart .etiket { font-size: 0.68rem; color: var(--sub); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+.ozet-kart .deger { font-family: 'IBM Plex Mono', monospace; font-size: 1.4rem; font-weight: 500; }
+.ozet-kart .alt   { font-size: 0.72rem; color: var(--sub); margin-top: 4px; }
+
+/* ── Kontroller ── */
+.kontroller {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.arama {
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.arama:focus { border-color: var(--accent); }
+.arama::placeholder { color: var(--muted); }
+
+.filtre-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 14px;
+  color: var(--sub);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.filtre-btn:hover  { border-color: var(--muted); color: var(--text); }
+.filtre-btn.aktif  { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 500; }
+
+.watchlist-toggle {
+  background: transparent;
+  border: 1px solid var(--sari);
+  border-radius: 8px;
+  padding: 7px 14px;
+  color: var(--sari);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-left: auto;
+}
+.watchlist-toggle:hover, .watchlist-toggle.aktif { background: var(--sari); color: #000; }
+
+/* ── Tablo ── */
+.tablo-container {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+thead th {
+  background: var(--surface);
+  padding: 11px 14px;
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--sub);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+thead th:hover { color: var(--text); }
+thead th.aktif-siralama { color: var(--accent); }
+thead th.sayisal { text-align: right; }
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+  cursor: pointer;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,0.025); }
+tbody tr.izleme-listesi { background: rgba(245,197,66,0.04); }
+
+td {
+  padding: 11px 14px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+td.sayisal { text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; }
+
+.kod-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--accent);
+  background: rgba(0,229,160,0.08);
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.isim-cell { max-width: 260px; }
+.isim-cell .isim { font-weight: 400; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+.isim-cell .alt  { font-size: 0.7rem; color: var(--sub); margin-top: 2px; }
+
+.kat-badge {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.kat-Hisse       { background: rgba(255,77,106,0.12); color: #ff7a8a; }
+.kat-Karma       { background: rgba(77,159,255,0.12); color: #7ab8ff; }
+.kat-Altın       { background: rgba(232,184,75,0.12); color: var(--altin); }
+.kat-Para        { background: rgba(0,229,160,0.10); color: #60f0b8; }
+.kat-Tahvil      { background: rgba(160,120,255,0.12); color: #c0a0ff; }
+.kat-Endeks      { background: rgba(255,180,50,0.10); color: #ffcc66; }
+.kat-diger       { background: rgba(120,120,120,0.12); color: var(--sub); }
+
+.pozitif { color: var(--yesil); }
+.negatif { color: var(--kirmizi); }
+.notr    { color: var(--sub); }
+
+.risk-bar {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+.risk-kutu {
+  width: 6px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--border);
+}
+.risk-kutu.dolu.r1 { background: var(--yesil); }
+.risk-kutu.dolu.r2 { background: #80e890; }
+.risk-kutu.dolu.r3 { background: var(--sari); }
+.risk-kutu.dolu.r4 { background: #ff9950; }
+.risk-kutu.dolu.r5 { background: var(--kirmizi); }
+
+.sinyal {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.sinyal-AL    { background: rgba(0,229,160,0.12); color: var(--yesil); }
+.sinyal-SAT   { background: rgba(255,77,106,0.12); color: var(--kirmizi); }
+.sinyal-BEKLE { background: rgba(245,197,66,0.08); color: var(--sari); }
+
+.yildiz {
+  font-size: 0.9rem;
+  cursor: pointer;
+  opacity: 0.3;
+  transition: opacity 0.15s, transform 0.15s;
+  line-height: 1;
+}
+.yildiz:hover   { opacity: 0.7; transform: scale(1.2); }
+.yildiz.aktif   { opacity: 1; color: var(--sari); }
+
+/* ── Boş durum ── */
+.bos {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--sub);
+  font-size: 0.9rem;
+}
+
+/* ── Footer ── */
+footer {
+  padding: 32px 0 40px;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 40px;
+  border-top: 1px solid var(--border);
+  line-height: 1.9;
+}
+
+/* ── Yükleniyor ── */
+.yukleniyor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+  gap: 12px;
+  color: var(--sub);
+  font-size: 0.85rem;
+}
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Animasyon ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.3s ease forwards; }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .ozet-grid { grid-template-columns: repeat(2, 1fr); }
+  td.gizle-mobile, th.gizle-mobile { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- ── Header ── -->
+  <header>
+    <div>
+      <div class="logo">Fon<span>Takip</span></div>
+      <div style="font-size:0.72rem;color:var(--sub);margin-top:4px;">TEFAS Fon Analiz & Karşılaştırma</div>
+    </div>
+    <div class="meta" id="meta-bilgi">
+      Yükleniyor...
+    </div>
+  </header>
+
+  <!-- ── Özet ── -->
+  <div class="ozet-grid" id="ozet-grid">
+    <div class="ozet-kart">
+      <div class="etiket">Toplam Fon</div>
+      <div class="deger" id="ozet-toplam">—</div>
+      <div class="alt">TEFAS'ta listelenen</div>
+    </div>
+    <div class="ozet-kart">
+      <div class="etiket">Al Sinyali</div>
+      <div class="deger pozitif" id="ozet-al">—</div>
+      <div class="alt">Momentum yukarı</div>
+    </div>
+    <div class="ozet-kart">
+      <div class="etiket">Sat Sinyali</div>
+      <div class="deger negatif" id="ozet-sat">—</div>
+      <div class="alt">Momentum aşağı</div>
+    </div>
+    <div class="ozet-kart">
+      <div class="etiket">İzleme Listesi</div>
+      <div class="deger" id="ozet-izleme" style="color:var(--sari)">—</div>
+      <div class="alt">Takip ettiğin fonlar</div>
+    </div>
+    <div class="ozet-kart">
+      <div class="etiket">En İyi 1A</div>
+      <div class="deger pozitif" id="ozet-en-iyi">—</div>
+      <div class="alt" id="ozet-en-iyi-kod">—</div>
+    </div>
+  </div>
+
+  <!-- ── Kontroller ── -->
+  <div class="kontroller">
+    <input class="arama" type="text" placeholder="Fon kodu veya isim ara…" id="arama" oninput="filtrele()">
+
+    <button class="filtre-btn aktif" onclick="kategoriFiltre(this, 'hepsi')">Tümü</button>
+    <button class="filtre-btn" onclick="kategoriFiltre(this, 'Hisse')">Hisse</button>
+    <button class="filtre-btn" onclick="kategoriFiltre(this, 'Altın')">Altın</button>
+    <button class="filtre-btn" onclick="kategoriFiltre(this, 'Para Piyasası')">Para Piy.</button>
+    <button class="filtre-btn" onclick="kategoriFiltre(this, 'Karma')">Karma</button>
+    <button class="filtre-btn" onclick="kategoriFiltre(this, 'Tahvil/Bono')">Tahvil</button>
+
+    <button class="watchlist-toggle" id="izleme-btn" onclick="izlemeModu()">⭐ İzleme Listesi</button>
+  </div>
+
+  <!-- ── Tablo ── -->
+  <div class="tablo-container">
+    <div class="yukleniyor" id="yukleniyor">
+      <div class="spinner"></div>
+      Fon verileri yükleniyor…
+    </div>
+
+    <table id="tablo" style="display:none">
+      <thead>
+        <tr>
+          <th></th>
+          <th onclick="sirala('kod')">Kod</th>
+          <th onclick="sirala('isim')">Fon Adı</th>
+          <th onclick="sirala('kategori')">Kategori</th>
+          <th class="sayisal" onclick="sirala('getiri_1h')">1 Hafta</th>
+          <th class="sayisal" onclick="sirala('getiri_1a')">1 Ay</th>
+          <th class="sayisal" onclick="sirala('getiri_3a')" >3 Ay</th>
+          <th class="sayisal gizle-mobile" onclick="sirala('getiri_ytd')">YBB</th>
+          <th onclick="sirala('risk')" class="gizle-mobile">Risk</th>
+          <th onclick="sirala('sinyal')">Sinyal</th>
+          <th class="sayisal gizle-mobile" onclick="sirala('yatirimci')">Yatırımcı</th>
+        </tr>
+      </thead>
+      <tbody id="tablo-body"></tbody>
+    </table>
+
+    <div class="bos" id="bos" style="display:none">
+      Bu kriterlere uygun fon bulunamadı.
+    </div>
+  </div>
+
+  <footer>
+    Veriler <strong>tefas.gov.tr</strong>'dan otomatik çekilmektedir. · 
+    Bu site yatırım tavsiyesi vermez. · 
+    FonTakip — Türkiye Fon Analiz Platformu
+  </footer>
+
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let tumFonlar    = [];
+let izlemedekiler = new Set(JSON.parse(localStorage.getItem('izleme') || '[]'));
+let aktifKategori = 'hepsi';
+let siralamaSutun = 'getiri_1a';
+let siralamaYon   = -1;  // -1: azalan, 1: artan
+let izlemeModu_aktif = false;
+
+// ── Veri yükle ───────────────────────────────────────────────────────────────
+async function yukle() {
+  try {
+    const r = await fetch('data/funds.json?v=' + Date.now());
+    const d = await r.json();
+    tumFonlar = d.fonlar || [];
+
+    // Meta bilgi
+    document.getElementById('meta-bilgi').innerHTML =
+      `Son güncelleme: <strong>${d.guncelleme}</strong><br>${d.fon_sayisi} fon listeleniyor`;
+
+    gunceleOzet();
+    render();
+
+    document.getElementById('yukleniyor').style.display = 'none';
+    document.getElementById('tablo').style.display = 'table';
+  } catch(e) {
+    document.getElementById('yukleniyor').innerHTML =
+      '<span style="color:var(--kirmizi)">Veri yüklenemedi. Lütfen sayfayı yenileyin.</span>';
+  }
+}
+
+// ── Özet güncelle ────────────────────────────────────────────────────────────
+function gunceleOzet() {
+  const al   = tumFonlar.filter(f => f.sinyal === 'AL').length;
+  const sat  = tumFonlar.filter(f => f.sinyal === 'SAT').length;
+  const enIyi = [...tumFonlar].sort((a,b) => (b.getiri_1a||0)-(a.getiri_1a||0))[0];
+
+  document.getElementById('ozet-toplam').textContent  = tumFonlar.length;
+  document.getElementById('ozet-al').textContent      = al;
+  document.getElementById('ozet-sat').textContent     = sat;
+  document.getElementById('ozet-izleme').textContent  = izlemedekiler.size;
+  if (enIyi) {
+    document.getElementById('ozet-en-iyi').textContent     = fmt(enIyi.getiri_1a);
+    document.getElementById('ozet-en-iyi-kod').textContent = enIyi.kod;
+  }
+}
+
+// ── Filtreleme ───────────────────────────────────────────────────────────────
+function filtreleVerisi() {
+  const q = document.getElementById('arama').value.toLowerCase();
+  return tumFonlar
+    .filter(f => {
+      if (izlemeModu_aktif && !izlemedekiler.has(f.kod)) return false;
+      if (aktifKategori !== 'hepsi' && !f.kategori.includes(aktifKategori)) return false;
+      if (q && !f.kod.toLowerCase().includes(q) && !f.isim.toLowerCase().includes(q)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const av = a[siralamaSutun] ?? (siralamaYon === -1 ? -Infinity : Infinity);
+      const bv = b[siralamaSutun] ?? (siralamaYon === -1 ? -Infinity : Infinity);
+      if (typeof av === 'string') return av.localeCompare(bv) * siralamaYon;
+      return (av - bv) * siralamaYon;
+    });
+}
+
+function filtrele() { render(); }
+
+function kategoriFiltre(btn, kat) {
+  aktifKategori = kat;
+  document.querySelectorAll('.filtre-btn').forEach(b => b.classList.remove('aktif'));
+  btn.classList.add('aktif');
+  render();
+}
+
+function izlemeModu() {
+  izlemeModu_aktif = !izlemeModu_aktif;
+  document.getElementById('izleme-btn').classList.toggle('aktif', izlemeModu_aktif);
+  render();
+}
+
+function sirala(sutun) {
+  if (siralamaSutun === sutun) siralamaYon *= -1;
+  else { siralamaSutun = sutun; siralamaYon = -1; }
+  document.querySelectorAll('thead th').forEach(th => th.classList.remove('aktif-siralama'));
+  render();
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const liste = filtreleVerisi();
+  const tbody = document.getElementById('tablo-body');
+  const bos   = document.getElementById('bos');
+
+  if (liste.length === 0) {
+    tbody.innerHTML = '';
+    bos.style.display = 'block';
+    return;
+  }
+  bos.style.display = 'none';
+
+  tbody.innerHTML = liste.map(f => {
+    const izleniyor = izlemedekiler.has(f.kod);
+    const katClass  = katBadgeClass(f.kategori);
+
+    return `
+      <tr class="${izleniyor ? 'izleme-listesi' : ''}" onclick="satirTikla(event, '${f.kod}')">
+        <td>
+          <span class="yildiz ${izleniyor ? 'aktif' : ''}"
+                onclick="event.stopPropagation(); izlemeDegistir('${f.kod}')"
+                title="${izleniyor ? 'İzlemeden çıkar' : 'İzlemeye al'}">★</span>
+        </td>
+        <td><span class="kod-badge">${f.kod}</span></td>
+        <td class="isim-cell">
+          <div class="isim">${f.isim}</div>
+          <div class="alt">${f.yatirimci ? binlikFormat(f.yatirimci) + ' yatırımcı' : ''}</div>
+        </td>
+        <td><span class="kat-badge ${katClass}">${f.kategori}</span></td>
+        <td class="sayisal ${renk(f.getiri_1h)}">${fmt(f.getiri_1h)}</td>
+        <td class="sayisal ${renk(f.getiri_1a)}">${fmt(f.getiri_1a)}</td>
+        <td class="sayisal ${renk(f.getiri_3a)}">${fmt(f.getiri_3a)}</td>
+        <td class="sayisal gizle-mobile ${renk(f.getiri_ytd)}">${fmt(f.getiri_ytd)}</td>
+        <td class="gizle-mobile">${riskBar(f.risk)}</td>
+        <td><span class="sinyal sinyal-${f.sinyal}">${f.sinyal}</span></td>
+        <td class="sayisal gizle-mobile">${f.yatirimci ? binlikFormat(f.yatirimci) : '—'}</td>
+      </tr>`;
+  }).join('');
+}
+
+// ── Yardımcı fonksiyonlar ─────────────────────────────────────────────────────
+function fmt(v) {
+  if (v === null || v === undefined) return '—';
+  const s = v > 0 ? '+' : '';
+  return s + v.toFixed(2) + '%';
+}
+
+function renk(v) {
+  if (v === null || v === undefined) return 'notr';
+  return v > 0 ? 'pozitif' : v < 0 ? 'negatif' : 'notr';
+}
+
+function riskBar(risk) {
+  const renkler = {1:'r1',2:'r2',3:'r3',4:'r4',5:'r5'};
+  const r = risk || 3;
+  return '<div class="risk-bar">' +
+    [1,2,3,4,5].map(i =>
+      `<div class="risk-kutu ${i<=r ? 'dolu ' + renkler[r] : ''}"></div>`
+    ).join('') + '</div>';
+}
+
+function katBadgeClass(kat) {
+  if (kat.includes('Hisse'))       return 'kat-Hisse';
+  if (kat.includes('Karma'))       return 'kat-Karma';
+  if (kat.includes('Altın'))       return 'kat-Altın';
+  if (kat.includes('Para'))        return 'kat-Para';
+  if (kat.includes('Tahvil') || kat.includes('Borç')) return 'kat-Tahvil';
+  if (kat.includes('Endeks'))      return 'kat-Endeks';
+  return 'kat-diger';
+}
+
+function binlikFormat(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000)    return (n/1000).toFixed(0) + 'B';
+  return n.toString();
+}
+
+// ── İzleme listesi ────────────────────────────────────────────────────────────
+function izlemeDegistir(kod) {
+  if (izlemedekiler.has(kod)) izlemedekiler.delete(kod);
+  else                        izlemedekiler.add(kod);
+  localStorage.setItem('izleme', JSON.stringify([...izlemedekiler]));
+  gunceleOzet();
+  render();
+}
+
+function satirTikla(event, kod) {
+  // İleride fon detay sayfasına yönlendirilebilir
+}
+
+// ── Başlat ────────────────────────────────────────────────────────────────────
+yukle();
+</script>
+
+</body>
+</html>
