@@ -9,25 +9,55 @@ ROOT   = os.path.join(os.path.dirname(__file__), "..")
 OUTPUT = os.path.join(ROOT, "data", "funds.json")
 os.makedirs(os.path.join(ROOT, "data"), exist_ok=True)
 
-KATEGORI = {
-    "Hisse Senedi Fonu":          "Hisse",
-    "Yabancı Hisse Senedi Fonu":  "Hisse (Yab.)",
-    "Karma Fon":                  "Karma",
-    "Değişken Fon":               "Değişken",
-    "Borçlanma Araçları Fonu":    "Tahvil/Bono",
-    "Para Piyasası Fonu":         "Para Piyasası",
-    "Kıymetli Madenler Fonu":     "Altın",
-    "Emtia Fonu":                 "Emtia",
-    "Endeks Fonu":                "Endeks",
-    "Fon Sepeti Fonu":            "Fon Sepeti",
-    "Borsa Yatırım Fonu":         "BYF/ETF",
-}
+def kategori_belirle(row):
+    try:
+        hisse    = float(row.get("stock", 0) or 0) + float(row.get("foreign_equity", 0) or 0)
+        altin    = float(row.get("precious_metals", 0) or 0) + \
+                   float(row.get("precious_metals_byf", 0) or 0) + \
+                   float(row.get("precious_metals_kba", 0) or 0) + \
+                   float(row.get("precious_metals_kks", 0) or 0)
+        para_piy = float(row.get("repo", 0) or 0) + \
+                   float(row.get("reverse_repo", 0) or 0) + \
+                   float(row.get("term_deposit", 0) or 0) + \
+                   float(row.get("term_deposit_tl", 0) or 0) + \
+                   float(row.get("tmm", 0) or 0)
+        tahvil   = float(row.get("government_bond", 0) or 0) + \
+                   float(row.get("treasury_bill", 0) or 0) + \
+                   float(row.get("private_sector_bond", 0) or 0) + \
+                   float(row.get("public_domestic_debt_instruments", 0) or 0)
+        katilim  = float(row.get("participation_account", 0) or 0) + \
+                   float(row.get("participation_account_tl", 0) or 0) + \
+                   float(row.get("government_lease_certificates", 0) or 0) + \
+                   float(row.get("government_lease_certificates_tl", 0) or 0)
+        etf      = float(row.get("exchange_traded_fund", 0) or 0) + \
+                   float(row.get("foreign_exchange_traded_funds", 0) or 0)
+        fon_sep  = float(row.get("fund_participation_certificate", 0) or 0) + \
+                   float(row.get("foreign_investment_fund_participation_shares", 0) or 0)
 
-def kategori_cevir(raw):
-    for k, v in KATEGORI.items():
-        if k.lower() in str(raw).lower():
-            return v
-    return "Diğer"
+        skorlar = {
+            "Hisse":         hisse,
+            "Altin":         altin,
+            "Para Piyasasi": para_piy,
+            "Tahvil/Bono":   tahvil,
+            "Katilim":       katilim,
+            "BYF/ETF":       etf,
+            "Fon Sepeti":    fon_sep,
+        }
+
+        en_buyuk       = max(skorlar, key=skorlar.get)
+        en_buyuk_deger = skorlar[en_buyuk]
+
+        if en_buyuk_deger >= 50:
+            return en_buyuk
+        elif en_buyuk_deger >= 25:
+            ikinci = sorted(skorlar, key=skorlar.get, reverse=True)[1]
+            if skorlar[ikinci] >= 15:
+                return "Karma"
+            return en_buyuk
+        else:
+            return "Degisken"
+    except:
+        return "Diger"
 
 def risk_skoru(getiriler):
     if len(getiriler) < 5:
@@ -53,7 +83,7 @@ def main():
         bugun -= timedelta(days=1)
 
     baslangic = bugun - timedelta(days=30)
-    print(f"[TEFAS] Çekiliyor: {baslangic} -> {bugun}")
+    print(f"[TEFAS] Cekiliyor: {baslangic} -> {bugun}")
 
     crawler = Crawler()
     df = crawler.fetch(start=str(baslangic), end=str(bugun))
@@ -63,8 +93,6 @@ def main():
         return
 
     df["date"] = pd.to_datetime(df["date"])
-    print("[DEBUG] Kolonlar:", df.columns.tolist())
-    print("[DEBUG] Ornek satir:", df.iloc[0].to_dict())
     print(f"[OK] {len(df)} satir, {df['code'].nunique()} fon")
 
     yil_basi = pd.Timestamp(date(bugun.year, 1, 1))
@@ -86,17 +114,17 @@ def main():
         gunluk = []
         for i in range(1, len(fiyatlar)):
             try:
-                onceki = float(fiyatlar[i-1])
-                simdi  = float(fiyatlar[i])
-                if onceki > 0:
-                    gunluk.append((simdi - onceki) / onceki)
+                eski_f = float(fiyatlar[i-1])
+                yeni_f = float(fiyatlar[i])
+                if eski_f > 0:
+                    gunluk.append((yeni_f - eski_f) / eski_f)
             except:
                 continue
 
         def getiri(gun):
             try:
-                hedef   = pd.Timestamp(bugun - timedelta(days=gun))
-                onceki  = grp[grp["date"] <= hedef]
+                hedef  = pd.Timestamp(bugun - timedelta(days=gun))
+                onceki = grp[grp["date"] <= hedef]
                 if onceki.empty:
                     return None
                 eski = float(onceki.iloc[-1]["price"])
@@ -116,23 +144,36 @@ def main():
         except:
             pass
 
-        s   = grp.iloc[-1]
+        son_satir = grp.iloc[-1]
+        onceki_gun = grp.iloc[-2] if len(grp) >= 2 else None
+
+        # Gunluk degisim
+        gunluk_degisim = None
+        try:
+            if onceki_gun is not None:
+                eski_fiyat = float(onceki_gun["price"])
+                if eski_fiyat > 0:
+                    gunluk_degisim = round((son - eski_fiyat) / eski_fiyat * 100, 2)
+        except:
+            pass
+
         g1h = getiri(7)
         g1a = getiri(30)
 
         fonlar.append({
-            "kod":        kod,
-            "isim":       str(s.get("title", kod)),
-            "kategori":   kategori_cevir(s.get("type", "")),
-            "fiyat":      round(son, 6),
-            "getiri_1h":  g1h,
-            "getiri_1a":  g1a,
-            "getiri_3a":  None,
-            "getiri_ytd": g_ytd,
-            "risk":       risk_skoru(gunluk),
-            "sinyal":     sinyal(g1h, g1a),
-            "yatirimci":  int(s.get("number_of_investors", 0) or 0),
-            "portfoy_tl": round(float(s.get("total_value", 0) or 0), 0),
+            "kod":             kod,
+            "isim":            str(son_satir.get("title", kod)),
+            "kategori":        kategori_belirle(son_satir),
+            "fiyat":           round(son, 4),
+            "gunluk_degisim":  gunluk_degisim,
+            "getiri_1h":       g1h,
+            "getiri_1a":       g1a,
+            "getiri_3a":       None,
+            "getiri_ytd":      g_ytd,
+            "risk":            risk_skoru(gunluk),
+            "sinyal":          sinyal(g1h, g1a),
+            "yatirimci":       int(son_satir.get("number_of_investors", 0) or 0),
+            "portfoy_tl":      round(float(son_satir.get("market_cap", 0) or 0), 0),
         })
 
     cikti = {
