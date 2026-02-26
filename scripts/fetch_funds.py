@@ -63,6 +63,8 @@ def main():
         return
 
     df["date"] = pd.to_datetime(df["date"])
+    print("[DEBUG] Kolonlar:", df.columns.tolist())
+    print("[DEBUG] Ornek satir:", df.iloc[0].to_dict())
     print(f"[OK] {len(df)} satir, {df['code'].nunique()} fon")
 
     yil_basi = pd.Timestamp(date(bugun.year, 1, 1))
