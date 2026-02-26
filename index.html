@@ -161,6 +161,24 @@ td.sayisal { text-align: right; font-family: 'IBM Plex Mono', monospace; font-si
 .yildiz:hover { opacity: 0.7; transform: scale(1.2); }
 .yildiz.aktif { opacity: 1; color: var(--sari); }
 
+.serbest-toggle {
+  background: transparent; border: 1px solid #ff9950;
+  border-radius: 8px; padding: 7px 14px; color: #ff9950;
+  font-size: 0.8rem; cursor: pointer; transition: all 0.15s;
+}
+.serbest-toggle:hover { background: rgba(255,153,80,0.1); }
+.serbest-toggle.gizleniyor { background: #ff9950; color: #000; font-weight: 500; }
+
+.serbest-rozet {
+  font-size: 0.62rem; padding: 1px 6px; border-radius: 3px;
+  background: rgba(255,153,80,0.15); color: #ff9950;
+  border: 1px solid rgba(255,153,80,0.3);
+  margin-left: 5px; vertical-align: middle; white-space: nowrap;
+}
+.serbest-uyari {
+  font-size: 0.68rem; color: #ff9950; margin-top: 2px;
+}
+
 .bos { text-align: center; padding: 60px 20px; color: var(--sub); font-size: 0.9rem; }
 footer {
   padding: 32px 0 40px; text-align: center; font-size: 0.72rem;
@@ -223,6 +241,7 @@ footer {
     <button class="filtre-btn" onclick="kategoriFiltre(this,'Karma')">Karma</button>
     <button class="filtre-btn" onclick="kategoriFiltre(this,'Tahvil/Bono')">Tahvil</button>
     <button class="filtre-btn" onclick="kategoriFiltre(this,'Katilim')">Katılım</button>
+    <button class="serbest-toggle" id="serbest-btn" onclick="serbetsizModu()">⚠️ Serbest Fonları Gizle</button>
     <button class="watchlist-toggle" id="izleme-btn" onclick="izlemeModu()">⭐ İzleme Listesi</button>
   </div>
 
@@ -266,7 +285,12 @@ let izlemedekiler = new Set(JSON.parse(localStorage.getItem('izleme') || '[]'));
 let aktifKategori = 'hepsi';
 let siralamaSutun = 'getiri_1a';
 let siralamaYon   = -1;
-let izlemeModu_aktif = false;
+let izlemeModu_aktif  = false;
+let serbest_gizle     = false;
+
+function serbetFonMu(f) {
+  return f.isim && f.isim.toUpperCase().includes('SERBEST');
+}
 
 async function yukle() {
   try {
@@ -304,6 +328,7 @@ function filtreleVerisi() {
   return tumFonlar
     .filter(f => {
       if (izlemeModu_aktif && !izlemedekiler.has(f.kod)) return false;
+      if (serbest_gizle && serbetFonMu(f)) return false;
       if (aktifKategori !== 'hepsi' && !f.kategori.includes(aktifKategori)) return false;
       if (q && !f.kod.toLowerCase().includes(q) && !f.isim.toLowerCase().includes(q)) return false;
       return true;
@@ -322,6 +347,14 @@ function kategoriFiltre(btn, kat) {
   aktifKategori = kat;
   document.querySelectorAll('.filtre-btn').forEach(b => b.classList.remove('aktif'));
   btn.classList.add('aktif');
+  render();
+}
+
+function serbetsizModu() {
+  serbest_gizle = !serbest_gizle;
+  const btn = document.getElementById('serbest-btn');
+  btn.classList.toggle('gizleniyor', serbest_gizle);
+  btn.textContent = serbest_gizle ? '⚠️ Serbest Fonlar Gizlendi' : '⚠️ Serbest Fonları Gizle';
   render();
 }
 
@@ -359,8 +392,13 @@ function render() {
         </td>
         <td><span class="kod-badge">${f.kod}</span></td>
         <td class="isim-cell">
-          <div class="isim">${f.isim}</div>
-          <div class="alt">${f.yatirimci ? binlikFormat(f.yatirimci) + ' yatırımcı' : ''}</div>
+          <div class="isim">
+            ${f.isim}
+            ${serbetFonMu(f) ? '<span class="serbest-rozet">NİT. YATIRIMCI</span>' : ''}
+          </div>
+          <div class="${serbetFonMu(f) ? 'serbest-uyari' : 'alt'}">
+            ${serbetFonMu(f) ? '⚠️ Halka açık değil' : (f.yatirimci ? binlikFormat(f.yatirimci) + ' yatırımcı' : '')}
+          </div>
         </td>
         <td><span class="kat-badge ${katClass(f.kategori)}">${f.kategori}</span></td>
         <td class="sayisal fiyat-cell">
